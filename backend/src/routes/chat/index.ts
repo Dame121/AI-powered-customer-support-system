@@ -1,10 +1,10 @@
 import { Hono } from 'hono'
-import prisma from '../../../lib/db.js'
+import prisma from '../../db/index.js'
 
-const chat = new Hono()
+const chatRoutes = new Hono()
 
 // POST /api/chat/messages - Send a message (auto-creates conversation if no conversationId)
-chat.post('/messages', async (c) => {
+chatRoutes.post('/messages', async (c) => {
   const body = await c.req.json<{ conversationId?: string; role?: string; content?: string }>()
 
   if (!body.content?.trim()) {
@@ -42,7 +42,7 @@ chat.post('/messages', async (c) => {
 })
 
 // GET /api/chat/conversations - List all conversations
-chat.get('/conversations', async (c) => {
+chatRoutes.get('/conversations', async (c) => {
   const conversations = await prisma.conversation.findMany({
     orderBy: { createdAt: 'desc' },
     include: { messages: { orderBy: { createdAt: 'asc' } } },
@@ -51,7 +51,7 @@ chat.get('/conversations', async (c) => {
 })
 
 // GET /api/chat/conversations/:id - Get a conversation with messages
-chat.get('/conversations/:id', async (c) => {
+chatRoutes.get('/conversations/:id', async (c) => {
   const id = c.req.param('id')
   const conversation = await prisma.conversation.findUnique({
     where: { id },
@@ -66,7 +66,7 @@ chat.get('/conversations/:id', async (c) => {
 })
 
 // DELETE /api/chat/conversations/:id - Delete a conversation and its messages
-chat.delete('/conversations/:id', async (c) => {
+chatRoutes.delete('/conversations/:id', async (c) => {
   const id = c.req.param('id')
 
   const conversation = await prisma.conversation.findUnique({ where: { id } })
@@ -78,4 +78,4 @@ chat.delete('/conversations/:id', async (c) => {
   return c.json({ message: 'Conversation deleted' })
 })
 
-export default chat
+export default chatRoutes

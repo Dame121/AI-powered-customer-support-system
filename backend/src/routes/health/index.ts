@@ -1,10 +1,10 @@
 import { Hono } from 'hono'
-import prisma from '../../../lib/db.js'
+import prisma from '../../db/index.js'
 
-const health = new Hono()
+const healthRoutes = new Hono()
 
 // GET /api/health - System health check
-health.get('/', async (c) => {
+healthRoutes.get('/', async (c) => {
   const status: {
     status: string
     uptime: number
@@ -31,4 +31,4 @@ health.get('/', async (c) => {
   return c.json(status, code)
 })
 
-export default health
+export default healthRoutes

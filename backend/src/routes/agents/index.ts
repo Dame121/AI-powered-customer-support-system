@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 
-const agents = new Hono()
+const agentRoutes = new Hono()
 
 // Agent definitions — your AI agents and what they can do
 const agentList = [
@@ -36,13 +36,13 @@ const agentList = [
 ]
 
 // GET /api/agents - List all available agents
-agents.get('/', (c) => {
+agentRoutes.get('/', (c) => {
   const summary = agentList.map(({ type, name, description }) => ({ type, name, description }))
   return c.json({ agents: summary })
 })
 
 // GET /api/agents/:type/capabilities - Get capabilities of a specific agent
-agents.get('/:type/capabilities', (c) => {
+agentRoutes.get('/:type/capabilities', (c) => {
   const type = c.req.param('type')
   const agent = agentList.find((a) => a.type === type)
 
@@ -58,4 +58,4 @@ agents.get('/:type/capabilities', (c) => {
   })
 })
 
-export default agents
+export default agentRoutes

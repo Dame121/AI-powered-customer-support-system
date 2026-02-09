@@ -1,8 +1,6 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
-import chat from './routes/api/chat/index.js'
-import agents from './routes/api/agents/index.js'
-import health from './routes/api/health/index.js'
+import api from './routes/index.js'
 
 const app = new Hono()
 
@@ -12,9 +10,7 @@ app.get('/', (c) => {
 })
 
 // --- API Routes ---
-app.route('/api/chat', chat)
-app.route('/api/agents', agents)
-app.route('/api/health', health)
+app.route('/api', api)
 
 // Start server
 serve({
