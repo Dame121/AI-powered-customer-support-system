@@ -43,8 +43,8 @@ export const chatService = {
       content: m.content,
     }))
 
-    // 4. Classify intent
-    const agentType: AgentType = await classifyIntent(content)
+    // 4. Classify intent (pass conversationId for follow-up context)
+    const agentType: AgentType = await classifyIntent(content, convId)
 
     // 5. Stream response from the delegated sub-agent
     const result = await routeToAgent(agentType, messages, convId)

@@ -54,6 +54,16 @@ export default function Sidebar({ activeId, onSelect, onNew, refreshKey }: Props
     }
   }
 
+  function getPreview(conv: Conversation): string {
+    const firstMsg = conv.messages?.[0]
+    if (firstMsg?.content) {
+      return firstMsg.content.length > 30
+        ? firstMsg.content.slice(0, 30) + '...'
+        : firstMsg.content
+    }
+    return 'New conversation'
+  }
+
   function formatDate(dateStr: string) {
     const d = new Date(dateStr)
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
@@ -83,8 +93,8 @@ export default function Sidebar({ activeId, onSelect, onNew, refreshKey }: Props
               onClick={() => onSelect(conv.id)}
             >
               <div className="conv-info">
-                <span className="conv-id">{conv.id.slice(0, 8)}...</span>
-                <span className="conv-date">{formatDate(conv.updatedAt)}</span>
+                <span className="conv-preview">{getPreview(conv)}</span>
+                <span className="conv-date">{formatDate(conv.createdAt)}</span>
               </div>
               <button
                 className="delete-btn"

@@ -6,6 +6,7 @@ import { supportAgentDef, supportAgentTools } from './support.agent.js'
 import { getOrderDetails, checkDeliveryStatus, getTrackingInfo } from '../tools/order.tools.js'
 import { getInvoiceDetails, checkPaymentStatus, listInvoices } from '../tools/billing.tools.js'
 import { answerFAQ, getConversationHistory } from '../tools/support.tools.js'
+import prisma from '../db/index.js'
 import type { AgentType, AgentDefinition } from '../types/index.js'
 
 // --- Agent Registry ---
@@ -18,17 +19,52 @@ const agentRegistry: Record<AgentType, { definition: AgentDefinition; tools: Rec
 
 // --- Intent Classification ---
 
-const ROUTER_SYSTEM_PROMPT = `You are an intelligent customer support router. Your ONLY job is to classify the customer's intent and respond with exactly one word:
-- "order" — if the query is about orders, shipping, delivery, tracking, order status, cancellations, or modifications
-- "billing" — if the query is about payments, invoices, refunds, charges, subscriptions, or billing issues
-- "support" — if the query is about general help, FAQs, troubleshooting, account issues, or anything else
+const ROUTER_SYSTEM_PROMPT = `You are an intelligent customer support router. Your ONLY job is to classify the customer's intent and respond with exactly one word.
 
-Respond with ONLY the single word: order, billing, or support. Nothing else.`
+Rules:
+- Reply "order" if the query is about orders, shipping, delivery, tracking, order status, cancellations, modifications, or mentions an order ID like ORD-XXXX.
+- Reply "billing" if the query is about payments, invoices, refunds, charges, subscriptions, billing issues, or mentions an invoice ID like INV-XXXX.
+- Reply "support" if the query is about general help, FAQs, troubleshooting, account issues, password reset, or anything else.
+
+IMPORTANT: If the message mentions "invoice" or "INV-", ALWAYS reply "billing". If the message mentions "order" or "ORD-", ALWAYS reply "order".
+
+Respond with ONLY one word: order, billing, or support. Nothing else.`
 
 /**
  * Classifies a user message into one of the agent types.
  */
-export async function classifyIntent(message: string): Promise<AgentType> {
+export async function classifyIntent(message: string, conversationId?: string): Promise<AgentType> {
+  // Quick keyword-based pre-check for reliability
+  const lower = message.toLowerCase()
+
+  // 1. Explicit ID mentions always win (highest priority)
+  if (/\binv-\d+/i.test(message)) return 'billing'
+  if (/\bord-\d+/i.test(message)) return 'order'
+
+  // 2. Support keywords — general help, FAQ-type questions, account issues
+  if (/\bpassword\b/.test(lower) || /\breset\b/.test(lower) || /\btroubleshoot/.test(lower) || /\bfaq\b/.test(lower) || /\baccount\s*(issue|problem|help|lock|access)/i.test(lower) || /\bhow\s+(do|can|to)\b/.test(lower) || /\bhelp\s+(with|me)\b/.test(lower) || /\breturn\s?policy\b/.test(lower) || /\bhow\s+long\b/.test(lower)) return 'support'
+
+  // 3. Billing keywords — specific invoice/payment actions
+  if (/\binvoices?\b/.test(lower) || /\bpayment\b/.test(lower) || /\bcharge\b/.test(lower) || /\bbilling\b/.test(lower) || /\bsubscription\b/.test(lower)) return 'billing'
+
+  // 4. Order keywords
+  if (/\borders?\b/.test(lower) || /\btracking\b/.test(lower) || /\bshipment\b/.test(lower) || /\bdelivery\b/.test(lower) || /\bshipping\b/.test(lower)) return 'order'
+
+  // For ambiguous follow-ups ("yes please", "ok", "tell me more"), check conversation history
+  // to reuse the previous agent's context
+  if (conversationId && lower.length < 40) {
+    const lastAgentMsg = await prisma.message.findFirst({
+      where: { conversationId, role: 'assistant' },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (lastAgentMsg) {
+      // Check what the previous assistant response was about
+      const prevContent = lastAgentMsg.content.toLowerCase()
+      if (/invoice|billing|payment|amount/.test(prevContent)) return 'billing'
+      if (/order|tracking|shipped|delivery/.test(prevContent)) return 'order'
+    }
+  }
+
   const { text } = await generateText({
     model: groq('llama-3.3-70b-versatile'),
     system: ROUTER_SYSTEM_PROMPT,
@@ -65,7 +101,8 @@ async function gatherToolContext(agentType: AgentType, message: string, conversa
   const { orderIds, invoiceIds } = extractIds(message)
   const contextParts: string[] = []
 
-  if (agentType === 'order') {
+  // Always gather order data if order IDs are present (regardless of agent type)
+  if (orderIds.length > 0) {
     for (const id of orderIds) {
       const order = await getOrderDetails(id)
       if (order) {
@@ -74,12 +111,12 @@ async function gatherToolContext(agentType: AgentType, message: string, conversa
         contextParts.push(`[Tool Result] Order ${id}: not found in the system.`)
       }
     }
-    if (orderIds.length === 0) {
-      contextParts.push('[Tool Result] No specific order ID was mentioned by the customer. Ask them for their order ID (format: ORD-XXXX).')
-    }
+  } else if (agentType === 'order') {
+    contextParts.push('[Tool Result] No specific order ID was mentioned by the customer. Ask them for their order ID (format: ORD-XXXX). Available orders: ORD-1001, ORD-1002, ORD-1003.')
   }
 
-  if (agentType === 'billing') {
+  // Always gather invoice data if invoice IDs are present (regardless of agent type)
+  if (invoiceIds.length > 0) {
     for (const id of invoiceIds) {
       const invoice = await getInvoiceDetails(id)
       if (invoice) {
@@ -88,11 +125,11 @@ async function gatherToolContext(agentType: AgentType, message: string, conversa
         contextParts.push(`[Tool Result] Invoice ${id}: not found in the system.`)
       }
     }
-    if (invoiceIds.length === 0) {
-      // If no specific invoice, list all
-      const allInvoices = await listInvoices()
-      contextParts.push(`[Tool Result] All invoices: ${JSON.stringify(allInvoices)}`)
-    }
+  } else if (agentType === 'billing') {
+    // If no specific invoice, list all with full details
+    const allInvoices = await listInvoices()
+    const formatted = allInvoices.map((inv: any) => `- ${inv.id}: amount=$${inv.amount}, status="${inv.status}"`).join('\n')
+    contextParts.push(`[Tool Result] All invoices in the system:\n${formatted}`)
   }
 
   if (agentType === 'support') {

@@ -17,12 +17,17 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
   const [isStreaming, setIsStreaming] = useState(false)
   const [agentType, setAgentType] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const skipFetchRef = useRef(false)
 
-  // Load messages when conversation switches
+  // Load messages when conversation switches (but skip if we just created it mid-stream)
   useEffect(() => {
     if (!conversationId) {
       setMessages([])
       setAgentType(null)
+      return
+    }
+    if (skipFetchRef.current) {
+      skipFetchRef.current = false
       return
     }
     // Fetch existing messages
@@ -62,6 +67,7 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
         await sendMessage(text, conversationId ?? undefined)
 
       if (!conversationId) {
+        skipFetchRef.current = true
         onConversationCreated(convId)
       }
       setAgentType(agent)
@@ -127,10 +133,10 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
             <h3>AI Customer Support</h3>
             <p>Ask about orders, billing, or general support.</p>
             <div className="examples">
-              <button onClick={() => setInput('What is the status of order ORD-001?')}>
+              <button onClick={() => setInput('What is the status of order ORD-1001?')}>
                 📦 Order status
               </button>
-              <button onClick={() => setInput('Show me invoice INV-001')}>
+              <button onClick={() => setInput('Show me invoice INV-2001')}>
                 💳 Invoice details
               </button>
               <button onClick={() => setInput('How do I reset my password?')}>
