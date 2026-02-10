@@ -1,0 +1,53 @@
+import { tool } from 'ai'
+import { z } from 'zod'
+import { getInvoiceDetails, checkPaymentStatus, listInvoices } from '../tools/billing.tools.js'
+import type { AgentDefinition } from '../types/index.js'
+
+// --- Agent Definition ---
+
+export const billingAgentDef: AgentDefinition = {
+  type: 'billing',
+  name: 'Billing Agent',
+  description: 'Handles payment issues, refunds, invoices, and subscription queries',
+  systemPrompt: `You are a Billing Support Agent. You help customers with billing and payment inquiries.
+You can look up invoices, check payment status, and list all invoices.
+Always be polite, concise, and helpful. If you cannot find an invoice, let the customer know.
+Use the tools available to you to retrieve real billing data before responding.`,
+}
+
+// --- Agent Tools ---
+
+export const billingAgentTools = {
+  getInvoiceDetails: tool({
+    description: 'Look up an invoice by its ID and return full details (amount, status, etc.)',
+    inputSchema: z.object({
+      invoiceId: z.string().describe('The invoice ID to look up, e.g. INV-2001'),
+    }),
+    execute: async ({ invoiceId }) => {
+      const invoice = await getInvoiceDetails(invoiceId)
+      if (!invoice) return { found: false as const, message: `Invoice ${invoiceId} not found.` }
+      return { found: true as const, invoice }
+    },
+  }),
+
+  checkPaymentStatus: tool({
+    description: 'Check the payment status of a specific invoice',
+    inputSchema: z.object({
+      invoiceId: z.string().describe('The invoice ID to check payment status for'),
+    }),
+    execute: async ({ invoiceId }) => {
+      const status = await checkPaymentStatus(invoiceId)
+      if (!status) return { found: false as const, message: `Invoice ${invoiceId} not found.` }
+      return { found: true as const, invoiceId, status }
+    },
+  }),
+
+  listAllInvoices: tool({
+    description: 'List all invoices in the system',
+    inputSchema: z.object({}),
+    execute: async () => {
+      const invoices = await listInvoices()
+      return { invoices, count: invoices.length }
+    },
+  }),
+}

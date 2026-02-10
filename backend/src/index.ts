@@ -1,8 +1,13 @@
+import 'dotenv/config'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
+import { errorHandler } from './middlewares/errorHandler.js'
 import api from './routes/index.js'
 
 const app = new Hono()
+
+// Global error handling middleware
+app.use('*', errorHandler)
 
 // Home route
 app.get('/', (c) => {
