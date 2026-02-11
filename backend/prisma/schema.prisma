@@ -9,15 +9,18 @@ datasource db {
 
 model Conversation {
   id        String    @id @default(uuid())
+  title     String?
   createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   messages  Message[]
 }
 
 model Message {
   id             String   @id @default(uuid())
   conversationId String
-  role           String   // user | assistant | agent
+  role           String   // user | assistant
   content        String
+  agentType      String?  // order | billing | support — which agent handled this
   createdAt      DateTime @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -26,13 +29,24 @@ model Message {
 }
 
 model Order {
-  id       String @id
-  status   String
-  tracking String
+  id            String    @id
+  customerName  String
+  customerEmail String
+  status        String    // processing | shipped | delivered | cancelled
+  tracking      String
+  items         String    // JSON string of order items
+  total         Float
+  createdAt     DateTime  @default(now())
+  deliveryDate  DateTime?
 }
 
 model Invoice {
-  id     String @id
-  amount Float
-  status String
+  id            String   @id
+  customerName  String
+  customerEmail String
+  amount        Float
+  status        String   // paid | pending | overdue | refunded
+  description   String
+  createdAt     DateTime @default(now())
+  dueDate       DateTime
 }

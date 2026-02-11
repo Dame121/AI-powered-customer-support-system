@@ -3,8 +3,8 @@ import { groq } from '@ai-sdk/groq'
 import { orderAgentDef, orderAgentTools } from './order.agent.js'
 import { billingAgentDef, billingAgentTools } from './billing.agent.js'
 import { supportAgentDef, supportAgentTools } from './support.agent.js'
-import { getOrderDetails, checkDeliveryStatus, getTrackingInfo } from '../tools/order.tools.js'
-import { getInvoiceDetails, checkPaymentStatus, listInvoices } from '../tools/billing.tools.js'
+import { getOrderDetails, checkDeliveryStatus, getTrackingInfo, listOrders } from '../tools/order.tools.js'
+import { getInvoiceDetails, checkPaymentStatus, checkRefundStatus, listInvoices } from '../tools/billing.tools.js'
 import { answerFAQ, getConversationHistory } from '../tools/support.tools.js'
 import prisma from '../db/index.js'
 import type { AgentType, AgentDefinition } from '../types/index.js'
@@ -106,13 +106,19 @@ async function gatherToolContext(agentType: AgentType, message: string, conversa
     for (const id of orderIds) {
       const order = await getOrderDetails(id)
       if (order) {
-        contextParts.push(`[Tool Result] Order ${id}: status="${order.status}", tracking="${order.tracking}"`)
+        const items = JSON.parse(order.items)
+        const itemList = items.map((i: any) => `${i.name} x${i.quantity} ($${i.price})`).join(', ')
+        contextParts.push(
+          `[Tool Result] Order ${id}: customer="${order.customerName}", email="${order.customerEmail}", status="${order.status}", tracking="${order.tracking || 'N/A'}", items=[${itemList}], total=$${order.total}, ordered=${order.createdAt.toISOString().split('T')[0]}, delivery=${order.deliveryDate ? order.deliveryDate.toISOString().split('T')[0] : 'TBD'}`
+        )
       } else {
         contextParts.push(`[Tool Result] Order ${id}: not found in the system.`)
       }
     }
   } else if (agentType === 'order') {
-    contextParts.push('[Tool Result] No specific order ID was mentioned by the customer. Ask them for their order ID (format: ORD-XXXX). Available orders: ORD-1001, ORD-1002, ORD-1003.')
+    const allOrders = await listOrders()
+    const formatted = allOrders.map((o) => `- ${o.id}: customer="${o.customerName}", status="${o.status}", total=$${o.total}`).join('\n')
+    contextParts.push(`[Tool Result] No specific order ID was mentioned. Available orders:\n${formatted}`)
   }
 
   // Always gather invoice data if invoice IDs are present (regardless of agent type)
@@ -120,7 +126,9 @@ async function gatherToolContext(agentType: AgentType, message: string, conversa
     for (const id of invoiceIds) {
       const invoice = await getInvoiceDetails(id)
       if (invoice) {
-        contextParts.push(`[Tool Result] Invoice ${id}: amount=$${invoice.amount}, status="${invoice.status}"`)
+        contextParts.push(
+          `[Tool Result] Invoice ${id}: customer="${invoice.customerName}", amount=$${invoice.amount}, status="${invoice.status}", description="${invoice.description}", created=${invoice.createdAt.toISOString().split('T')[0]}, due=${invoice.dueDate.toISOString().split('T')[0]}`
+        )
       } else {
         contextParts.push(`[Tool Result] Invoice ${id}: not found in the system.`)
       }
@@ -128,7 +136,7 @@ async function gatherToolContext(agentType: AgentType, message: string, conversa
   } else if (agentType === 'billing') {
     // If no specific invoice, list all with full details
     const allInvoices = await listInvoices()
-    const formatted = allInvoices.map((inv: any) => `- ${inv.id}: amount=$${inv.amount}, status="${inv.status}"`).join('\n')
+    const formatted = allInvoices.map((inv: any) => `- ${inv.id}: customer="${inv.customerName}", amount=$${inv.amount}, status="${inv.status}", due=${inv.dueDate.toISOString().split('T')[0]}`).join('\n')
     contextParts.push(`[Tool Result] All invoices in the system:\n${formatted}`)
   }
 

@@ -1,6 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { getInvoiceDetails, checkPaymentStatus, listInvoices } from '../tools/billing.tools.js'
+import { getInvoiceDetails, checkPaymentStatus, checkRefundStatus, listInvoices } from '../tools/billing.tools.js'
 import type { AgentDefinition } from '../types/index.js'
 
 // --- Agent Definition ---
@@ -39,7 +39,19 @@ export const billingAgentTools = {
     execute: async ({ invoiceId }) => {
       const status = await checkPaymentStatus(invoiceId)
       if (!status) return { found: false as const, message: `Invoice ${invoiceId} not found.` }
-      return { found: true as const, invoiceId, status }
+      return { found: true as const, invoiceId, ...status }
+    },
+  }),
+
+  checkRefundStatus: tool({
+    description: 'Check the refund status of a specific invoice',
+    inputSchema: z.object({
+      invoiceId: z.string().describe('The invoice ID to check refund status for'),
+    }),
+    execute: async ({ invoiceId }) => {
+      const result = await checkRefundStatus(invoiceId)
+      if (!result) return { found: false as const, message: `Invoice ${invoiceId} not found.` }
+      return { found: true as const, ...result }
     },
   }),
 

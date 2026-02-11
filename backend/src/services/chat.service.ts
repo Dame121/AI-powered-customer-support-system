@@ -55,10 +55,29 @@ export const chatService = {
   /**
    * Save the final assistant response to DB after streaming completes.
    */
-  async saveAssistantMessage(conversationId: string, content: string) {
-    return prisma.message.create({
-      data: { conversationId, role: 'assistant', content },
+  async saveAssistantMessage(conversationId: string, content: string, agentType: AgentType) {
+    // Save the assistant message with agentType
+    await prisma.message.create({
+      data: { conversationId, role: 'assistant', content, agentType },
     })
+
+    // Auto-set conversation title from first user message if not set
+    const conv = await prisma.conversation.findUnique({ where: { id: conversationId } })
+    if (conv && !conv.title) {
+      const firstMsg = await prisma.message.findFirst({
+        where: { conversationId, role: 'user' },
+        orderBy: { createdAt: 'asc' },
+      })
+      if (firstMsg) {
+        const title = firstMsg.content.length > 60
+          ? firstMsg.content.slice(0, 60) + '...'
+          : firstMsg.content
+        await prisma.conversation.update({
+          where: { id: conversationId },
+          data: { title },
+        })
+      }
+    }
   },
 
   /**

@@ -4,6 +4,7 @@ import { sendMessage } from '../api/client'
 interface ChatMsg {
   role: 'user' | 'assistant'
   content: string
+  agentType?: string | null
 }
 
 interface Props {
@@ -39,8 +40,12 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
             data.conversation.messages.map((m: any) => ({
               role: m.role,
               content: m.content,
+              agentType: m.agentType || null,
             }))
           )
+          // Set agent type from last assistant message
+          const lastAssistant = [...data.conversation.messages].reverse().find((m: any) => m.role === 'assistant')
+          if (lastAssistant?.agentType) setAgentType(lastAssistant.agentType)
         }
       })
       .catch(console.error)
@@ -153,7 +158,7 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
             </div>
             <div className="message-content">
               <div className="message-role">
-                {msg.role === 'user' ? 'You' : `Assistant${agentType ? ` (${agentType})` : ''}`}
+                {msg.role === 'user' ? 'You' : `Assistant${msg.agentType ? ` (${msg.agentType})` : agentType ? ` (${agentType})` : ''}`}
               </div>
               <div className="message-text">{msg.content}</div>
             </div>

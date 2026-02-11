@@ -4,6 +4,7 @@ const API_BASE = 'http://localhost:3000/api'
 
 export interface Conversation {
   id: string
+  title: string | null
   createdAt: string
   updatedAt: string
   messages: Message[]
@@ -13,6 +14,7 @@ export interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
+  agentType: string | null
   createdAt: string
   conversationId: string
 }

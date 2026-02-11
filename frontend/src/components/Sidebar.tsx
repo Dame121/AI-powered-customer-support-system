@@ -55,10 +55,11 @@ export default function Sidebar({ activeId, onSelect, onNew, refreshKey }: Props
   }
 
   function getPreview(conv: Conversation): string {
+    if (conv.title) return conv.title
     const firstMsg = conv.messages?.[0]
     if (firstMsg?.content) {
-      return firstMsg.content.length > 30
-        ? firstMsg.content.slice(0, 30) + '...'
+      return firstMsg.content.length > 40
+        ? firstMsg.content.slice(0, 40) + '...'
         : firstMsg.content
     }
     return 'New conversation'

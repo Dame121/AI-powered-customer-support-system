@@ -31,7 +31,7 @@ export const chatController = {
 
     // Save assistant message to DB after stream finishes (non-blocking)
     result.text.then((fullText) => {
-      chatService.saveAssistantMessage(conversationId, fullText).catch(console.error)
+      chatService.saveAssistantMessage(conversationId, fullText, agentType).catch(console.error)
     })
 
     return response
