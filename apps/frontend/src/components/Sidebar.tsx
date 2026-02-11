@@ -94,7 +94,7 @@ export default function Sidebar({ activeId, onSelect, onNew, refreshKey, isOpen,
       <div className="sidebar-header">
         <div className="sidebar-brand">
           <span className="brand-icon">🤖</span>
-          {isOpen && <span className="brand-text">AI Support</span>}
+          {isOpen && <span className="brand-text">AI-Powered Customer Support System</span>}
         </div>
         <button className="sidebar-toggle" onClick={onToggle} title={isOpen ? 'Close sidebar' : 'Open sidebar'}>
           {isOpen ? (

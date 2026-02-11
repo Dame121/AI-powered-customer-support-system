@@ -204,7 +204,7 @@ export default function ChatArea({ conversationId, onConversationCreated, sideba
           )}
           <div className="header-title">
             <h2>Chat</h2>
-            <span className="header-subtitle">AI-Powered Customer Support</span>
+            <span className="header-subtitle">AI-Powered Customer Support System</span>
           </div>
         </div>
         {agentType && getAgentBadge(agentType)}
@@ -232,7 +232,7 @@ export default function ChatArea({ conversationId, onConversationCreated, sideba
         {messages.length === 0 && !isLoadingHistory && (
           <div className="empty-state">
             <div className="empty-icon">🤖</div>
-            <h3>How can I help you today?</h3>
+            <h3>AI-Powered Customer Support System</h3>
             <p>I can assist with orders, billing, and general support questions.</p>
             <div className="examples">
               <button onClick={() => setInput('What is the status of order ORD-1001?')}>
