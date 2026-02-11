@@ -10,6 +10,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io/)
 [![Turborepo](https://img.shields.io/badge/Turborepo-2.5-EF4444?logo=turborepo&logoColor=white)](https://turbo.build/)
+[![Vitest](https://img.shields.io/badge/Tested_with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev/)
 
 A production-ready customer support system featuring a **Router Agent** that classifies user intent and delegates to specialized sub-agents — each equipped with tools that query live data from a PostgreSQL database. Responses are **streamed in real time** with thinking indicators and agent routing status.
 
@@ -19,9 +20,14 @@ A production-ready customer support system featuring a **Router Agent** that cla
 
 ## Screenshots
 
-| Chat Interface | Agent Routing & Streaming | Conversation History |
-|:-:|:-:|:-:|
-| ![Chat Interface](screenshots/chat-interface.png) | ![Agent Routing](screenshots/agent-routing.png) | ![Conversation History](screenshots/conversation-history.png) |
+### Chat Interface
+<img src="screenshots/chat-interface.png" alt="Chat Interface" width="800" />
+
+### Agent Routing & Streaming
+<img src="screenshots/agent-routing.png" alt="Agent Routing" width="800" />
+
+### Conversation History
+<img src="screenshots/conversation-history.png" alt="Conversation History" width="800" />
 
 ---
 
@@ -33,6 +39,7 @@ A production-ready customer support system featuring a **Router Agent** that cla
 - [API Reference](#api-reference)
 - [Multi-Agent System](#multi-agent-system)
 - [Key Features](#key-features)
+- [Testing](#testing)
 - [Project Structure](#project-structure)
 - [Database Schema & Seed Data](#database-schema--seed-data)
 
@@ -102,6 +109,7 @@ The system follows a **Controller → Service → Agent** pattern with clean sep
 | **Monorepo** | Turborepo + npm Workspaces | Parallel builds, shared dependencies |
 | **Type Safety** | Hono RPC (`hc` client) | End-to-end type-safe API calls |
 | **Validation** | Zod | Runtime schema validation for tool inputs |
+| **Testing** | Vitest | Unit & integration tests with mocked DB |
 
 ---
 
@@ -246,6 +254,30 @@ The response is a **streamed text response** with:
 | **Context Compaction** | Only the last 20 messages are sent to the LLM to prevent token overflow |
 | **Rate Limiting** | In-memory rate limiter — 30 requests/minute per IP address |
 | **Global Error Handling** | Middleware catches all unhandled errors and returns consistent JSON responses |
+| **Unit & Integration Tests** | 69 tests across 6 files using Vitest — covers intent routing, rate limiting, chat service, agent definitions, and full API integration |
+
+---
+
+## Testing
+
+The backend includes a comprehensive test suite built with **Vitest**.
+
+```bash
+npm test                # Run all tests via Turborepo
+npm run test:coverage   # Run with code coverage report
+```
+
+| Test File | Tests | Scope |
+|:----------|:-----:|:------|
+| `support.tools.test.ts` | 12 | FAQ keyword matching, case-insensitivity, fallback responses |
+| `router.agent.test.ts` | 19 | Intent classification — IDs, keyword routing, priority rules |
+| `rateLimiter.test.ts` | 6 | Request limits, 429 blocking, per-IP tracking, window expiry |
+| `agents.test.ts` | 7 | Agent definitions structure, tool registration for all 3 agents |
+| `chat.service.test.ts` | 13 | Conversation CRUD, context compaction, auto-titling, 404 handling |
+| `api.integration.test.ts` | 12 | Full HTTP integration tests for health, agents, and chat routes |
+| **Total** | **69** | |
+
+All database calls are mocked with `vi.mock()` — no live DB needed to run tests.
 
 ---
 
@@ -280,6 +312,9 @@ ai-customer-support/
 │   │       ├── middlewares/
 │   │       │   ├── errorHandler.ts     # Global error handling
 │   │       │   └── rateLimiter.ts      # IP-based rate limiting
+│   │       ├── __tests__/             # (co-located test files)
+│   │       │   ├── *.test.ts          # Unit tests (tools, agents, middleware)
+│   │       │   └── api.integration.test.ts  # Integration tests (HTTP routes)
 │   │       ├── routes/
 │   │       │   ├── index.ts            # Route aggregator (Hono RPC type export)
 │   │       │   ├── chat.routes.ts      # Chat endpoints
