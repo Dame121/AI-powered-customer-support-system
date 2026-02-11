@@ -1,177 +1,371 @@
+<div align="center">
+
 # AI-Powered Customer Support System
 
-A fullstack AI customer support system with a **multi-agent architecture**. A router agent analyzes incoming queries and delegates to specialized sub-agents (Order, Billing, Support), each with access to tools that query real data from a PostgreSQL database. Responses are streamed in real time.
+**A fullstack multi-agent AI support platform built with Hono, React, and the Vercel AI SDK**
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Hono](https://img.shields.io/badge/Hono-4.11-E36002?logo=hono&logoColor=white)](https://hono.dev/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-6.19-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![Turborepo](https://img.shields.io/badge/Turborepo-2.5-EF4444?logo=turborepo&logoColor=white)](https://turbo.build/)
+
+A production-ready customer support system featuring a **Router Agent** that classifies user intent and delegates to specialized sub-agents — each equipped with tools that query live data from a PostgreSQL database. Responses are **streamed in real time** with thinking indicators and agent routing status.
+
+</div>
+
+---
+
+## Screenshots
+
+| Chat Interface | Agent Routing & Streaming | Conversation History |
+|:-:|:-:|:-:|
+| ![Chat Interface](screenshots/chat-interface.png) | ![Agent Routing](screenshots/agent-routing.png) | ![Conversation History](screenshots/conversation-history.png) |
+
+---
+
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [API Reference](#api-reference)
+- [Multi-Agent System](#multi-agent-system)
+- [Key Features](#key-features)
+- [Project Structure](#project-structure)
+- [Database Schema & Seed Data](#database-schema--seed-data)
+
+---
 
 ## Architecture
 
+The system follows a **Controller → Service → Agent** pattern with clean separation of concerns. The Router Agent uses a hybrid classification strategy (keyword matching + LLM fallback) to delegate queries to the correct sub-agent, which gathers tool data and streams a contextual response.
+
 ```
-Frontend (React + Vite)
-    │
-    ▼
-Backend (Hono.dev)
-    │
-    ├── Controller Layer   → thin route handlers
-    ├── Service Layer      → business logic
-    ├── Rate Limiter       → 30 req/min per IP
-    ├── Error Handler      → global error middleware
-    ├── Router Agent       → intent classification + delegation
-    │     ├── Order Agent  → tools: getOrderDetails, checkDeliveryStatus, getTrackingInfo
-    │     ├── Billing Agent→ tools: getInvoiceDetails, checkPaymentStatus, checkRefundStatus, listAllInvoices
-    │     └── Support Agent→ tools: searchFAQ, getConversationHistory
-    └── Database (PostgreSQL + Prisma)
+┌─────────────────────────────────────────────────────────────────┐
+│                     Frontend (React + Vite)                     │
+│              Hono RPC Client (end-to-end type safety)           │
+└────────────────────────────┬────────────────────────────────────┘
+                             │  HTTP / Streaming
+┌────────────────────────────▼────────────────────────────────────┐
+│                      Backend (Hono.dev)                         │
+│                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────┐  │
+│  │ Rate Limiter  │  │ Error Handler│  │ CORS Middleware        │  │
+│  │ 30 req/min/IP │  │  (global)    │  │                       │  │
+│  └──────┬───────┘  └──────┬───────┘  └───────────┬───────────┘  │
+│         └─────────────────┼──────────────────────┘              │
+│                           ▼                                     │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                    Controller Layer                      │    │
+│  │           (thin handlers — delegates to services)        │    │
+│  └─────────────────────────┬───────────────────────────────┘    │
+│                            ▼                                    │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                     Service Layer                        │    │
+│  │       (business logic, context management, routing)      │    │
+│  └─────────────────────────┬───────────────────────────────┘    │
+│                            ▼                                    │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                    Router Agent                          │    │
+│  │         (intent classification + delegation)             │    │
+│  │                                                          │    │
+│  │    ┌──────────────┬──────────────┬──────────────┐        │    │
+│  │    │ Order Agent   │ Billing Agent│ Support Agent│        │    │
+│  │    │              │              │              │        │    │
+│  │    │ • getOrder   │ • getInvoice │ • searchFAQ  │        │    │
+│  │    │ • delivery   │ • payment    │ • history    │        │    │
+│  │    │ • tracking   │ • refund     │              │        │    │
+│  │    │              │ • listAll    │              │        │    │
+│  │    └──────────────┴──────────────┴──────────────┘        │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                            ▼                                    │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              PostgreSQL + Prisma ORM                     │    │
+│  │    (Conversations, Messages, Orders, Invoices)           │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Key patterns:**
-- Controller-Service separation (routes → controller → service → agents)
-- Global error handling middleware
-- Rate limiting (30 requests/minute per IP)
-- Streaming AI responses via Vercel AI SDK + Groq
-- Conversation context persistence across messages
-- Context compaction (last 20 messages to prevent token overflow)
-- Keyword + LLM hybrid intent classification
-- Agent type tracking per message
-- Auto-generated conversation titles
-- "Thinking" / routing status indicators
-- Markdown rendering for AI responses
+---
 
 ## Tech Stack
 
-| Layer     | Technology                              |
-|-----------|-----------------------------------------|
-| Frontend  | React 19, Vite, TypeScript              |
-| Backend   | Hono.dev, TypeScript, Node.js           |
-| Database  | PostgreSQL                              |
-| ORM       | Prisma                                  |
-| AI        | Vercel AI SDK, Groq (Llama 3.3)         |
-| Monorepo  | Turborepo + npm Workspaces              |
-| Type-safe client | Hono RPC (`hc` client)           |
+| Layer | Technology | Purpose |
+|:------|:-----------|:--------|
+| **Frontend** | React 19, Vite, TypeScript | SPA with real-time streaming UI |
+| **Backend** | Hono.dev, Node.js, TypeScript | Lightweight, high-performance API server |
+| **Database** | PostgreSQL | Relational data storage |
+| **ORM** | Prisma 6 | Type-safe database access with migrations |
+| **AI** | Vercel AI SDK, Groq (Llama 3.3 70B) | LLM inference with streaming support |
+| **Monorepo** | Turborepo + npm Workspaces | Parallel builds, shared dependencies |
+| **Type Safety** | Hono RPC (`hc` client) | End-to-end type-safe API calls |
+| **Validation** | Zod | Runtime schema validation for tool inputs |
 
-## Prerequisites
+---
+
+## Getting Started
+
+### Prerequisites
 
 - **Node.js** >= 22.x
-- **PostgreSQL** running locally (or remote connection string)
-- **Groq API key** (free at https://console.groq.com)
+- **PostgreSQL** running locally or a remote connection string
+- **Groq API key** — free at [console.groq.com](https://console.groq.com)
 
-## Setup
-
-### 1. Clone the repository
+### 1. Clone & Install
 
 ```bash
 git clone https://github.com/Dame121/AI-powered-customer-support-system.git
 cd AI-powered-customer-support-system
-npm install        # installs all workspace dependencies
+npm install
 ```
 
-### 2. Backend setup
+### 2. Configure Environment
 
-Create a `.env` file in `apps/backend/` (see `.env.example`):
+Create `apps/backend/.env`:
 
 ```env
 DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/customer_support"
-GROQ_API_KEY="your-groq-api-key-here"
+GROQ_API_KEY="your-groq-api-key"
 ```
 
-Run database migrations and seed:
+### 3. Database Setup
 
 ```bash
-cd apps/backend
-npx prisma migrate dev
-npm run db:seed
+npm run db:migrate      # Run Prisma migrations
+npm run db:seed         # Seed with sample orders, invoices & conversations
 ```
 
-### 3. Run everything (Turborepo)
-
-From the project root:
+### 4. Run the Application
 
 ```bash
-npm run dev        # starts backend + frontend concurrently via turbo
+npm run dev             # Starts backend + frontend concurrently via Turborepo
 ```
 
-Or run individually:
+| Service | URL |
+|:--------|:----|
+| Backend API | http://localhost:3000 |
+| Frontend | http://localhost:5173 |
+
+<details>
+<summary><strong>Run services individually</strong></summary>
 
 ```bash
-npm run dev:backend    # backend only → http://localhost:3000
-npm run dev:frontend   # frontend only → http://localhost:5173
+npm run dev:backend     # Backend only
+npm run dev:frontend    # Frontend only
 ```
+</details>
 
-Build all packages:
+<details>
+<summary><strong>Production build</strong></summary>
 
 ```bash
-npm run build      # turbo build (backend tsc + frontend vite build)
+npm run build           # Turbo build (backend tsc + frontend vite build)
+```
+</details>
+
+---
+
+## API Reference
+
+### Chat
+
+| Method | Endpoint | Description |
+|:-------|:---------|:------------|
+| `POST` | `/api/chat/messages` | Send a message and receive a streamed AI response |
+| `GET` | `/api/chat/conversations` | List all conversations with messages |
+| `GET` | `/api/chat/conversations/:id` | Get a single conversation by ID |
+| `DELETE` | `/api/chat/conversations/:id` | Delete a conversation and its messages |
+
+### Agents
+
+| Method | Endpoint | Description |
+|:-------|:---------|:------------|
+| `GET` | `/api/agents` | List all available agents |
+| `GET` | `/api/agents/:type/capabilities` | Get an agent's tools and capabilities |
+
+### Health
+
+| Method | Endpoint | Description |
+|:-------|:---------|:------------|
+| `GET` | `/api/health` | Health check with database connectivity status |
+
+<details>
+<summary><strong>Example: Send a message</strong></summary>
+
+```bash
+curl -X POST http://localhost:3000/api/chat/messages \
+  -H "Content-Type: application/json" \
+  -d '{"content": "What is the status of ORD-1001?"}'
 ```
 
-## API Routes
+The response is a **streamed text response** with:
+- `X-Conversation-Id` header — the conversation ID (auto-created if not provided)
+- `X-Agent-Type` header — which agent handled the query (`order`, `billing`, `support`)
+- Body — streamed AI text, prefixed with `__STATUS__:Routed to <agent> agent\n`
 
-| Method | Endpoint                         | Description                  |
-|--------|----------------------------------|------------------------------|
-| POST   | `/api/chat/messages`             | Send message (streaming)     |
-| GET    | `/api/chat/conversations`        | List all conversations       |
-| GET    | `/api/chat/conversations/:id`    | Get conversation with messages|
-| DELETE | `/api/chat/conversations/:id`    | Delete a conversation        |
-| GET    | `/api/agents`                    | List all agents              |
-| GET    | `/api/agents/:type/capabilities` | Get agent tools/capabilities |
-| GET    | `/api/health`                    | Health check + DB status     |
+</details>
 
-## Seed Data
-
-### Orders (7 records)
-
-| Order     | Customer       | Status      | Total    | Tracking    |
-|-----------|---------------|-------------|----------|-------------|
-| ORD-1001  | Alice Johnson | shipped     | $99.97   | TRK-ABC123  |
-| ORD-1002  | Bob Smith     | processing  | $149.99  | —           |
-| ORD-1003  | Carol Davis   | delivered   | $77.50   | TRK-XYZ789  |
-| ORD-1004  | David Lee     | shipped     | $124.97  | TRK-DEF456  |
-| ORD-1005  | Eva Martinez  | cancelled   | $299.99  | —           |
-| ORD-1006  | Frank Wilson  | processing  | $259.98  | —           |
-| ORD-1007  | Alice Johnson | delivered   | $50.97   | TRK-GHI012  |
-
-### Invoices (7 records)
-
-| Invoice   | Customer       | Amount   | Status   | Due Date   |
-|-----------|---------------|----------|----------|------------|
-| INV-2001  | Alice Johnson | $99.97   | paid     | 2026-02-15 |
-| INV-2002  | Bob Smith     | $149.99  | pending  | 2026-03-08 |
-| INV-2003  | Carol Davis   | $77.50   | paid     | 2026-02-20 |
-| INV-2004  | David Lee     | $124.97  | pending  | 2026-03-01 |
-| INV-2005  | Eva Martinez  | $299.99  | refunded | 2026-03-05 |
-| INV-2006  | Frank Wilson  | $259.98  | pending  | 2026-03-10 |
-| INV-2007  | Alice Johnson | $50.97   | overdue  | 2026-01-20 |
+---
 
 ## Multi-Agent System
 
-### Router Agent
-- Classifies user intent using keyword matching + LLM fallback
-- Tracks conversation context for follow-up messages
-- Delegates to the correct sub-agent with tool-gathered data injected into the prompt
-- Sends routing status to frontend ("Routed to order agent")
+### How It Works
 
-### Order Agent
-- **getOrderDetails** — fetch full order by ID (customer, items, total, dates)
-- **checkDeliveryStatus** — get current shipping status + delivery date
-- **getTrackingInfo** — get tracking number + shipping info
+1. **User sends a message** → the Service layer saves it and loads conversation history
+2. **Router Agent classifies intent** using a two-tier strategy:
+   - **Tier 1 — Keyword matching**: Fast regex-based checks for order IDs (`ORD-XXXX`), invoice IDs (`INV-XXXX`), and domain-specific keywords
+   - **Tier 2 — LLM classification**: For ambiguous queries, the Router sends the message to Groq's Llama 3.3 model with a tightly constrained system prompt that returns one word: `order`, `billing`, or `support`
+   - **Follow-up context**: Short/ambiguous messages ("yes please", "tell me more") inherit the previous agent type from conversation history
+3. **Sub-agent gathers tool data** — real database queries (orders, invoices, FAQs) are executed and injected into the agent's system prompt
+4. **Response is streamed** — the sub-agent generates a response via `streamText()` and it's piped to the client in real time
 
-### Billing Agent
-- **getInvoiceDetails** — fetch invoice by ID (customer, amount, description, dates)
-- **checkPaymentStatus** — get payment status + due date
-- **checkRefundStatus** — check if invoice has been refunded
-- **listAllInvoices** — list all invoices with details
+### Agent Breakdown
 
-### Support Agent
-- **searchFAQ** — keyword-based FAQ lookup (passwords, shipping, returns, etc.)
-- **getConversationHistory** — retrieve prior conversation messages for context
+| Agent | Tools | Capabilities |
+|:------|:------|:-------------|
+| **Order Agent** | `getOrderDetails`, `checkDeliveryStatus`, `getTrackingInfo` | Look up orders by ID, check shipping status, retrieve tracking numbers |
+| **Billing Agent** | `getInvoiceDetails`, `checkPaymentStatus`, `checkRefundStatus`, `listAllInvoices` | Look up invoices, check payment/refund status, list all invoices |
+| **Support Agent** | `searchFAQ`, `getConversationHistory` | Answer FAQs (returns, shipping, passwords), pull conversation history for context |
 
-## Features
+---
 
-- **Hono RPC + type-safe client** — Frontend uses `hc<AppType>()` from `hono/client` for end-to-end type safety
-- **Turborepo monorepo** — `npm run dev` starts backend + frontend concurrently via `turbo`
-- **Streaming responses** — AI responses stream in real-time, word by word
-- **Thinking indicator** — Shows "Analyzing your query...", "Searching knowledge base..." etc. while the AI processes
-- **Agent routing status** — Displays which agent was selected before response starts
-- **Markdown rendering** — AI responses render bold, lists, code blocks, etc.
-- **Conversation persistence** — All messages saved to PostgreSQL with agent type tracking
-- **Auto-generated titles** — Conversations get titled from the first user message
-- **Context compaction** — Only last 20 messages sent to LLM to prevent token overflow
-- **Rate limiting** — 30 requests/minute per IP address
-- **Error handling** — Global middleware + frontend error banners
-- **Loading states** — Skeleton loading when fetching conversation history
+## Key Features
+
+| Feature | Description |
+|:--------|:------------|
+| **Hono RPC** | Frontend uses `hc<AppType>()` for compile-time type-safe API calls across the monorepo |
+| **Turborepo** | Parallel dev/build pipelines with smart caching |
+| **Streaming Responses** | AI responses stream word-by-word to the UI via `ReadableStream` |
+| **Thinking Indicators** | Animated status messages ("Analyzing your query...", "Searching knowledge base...") while the AI processes |
+| **Agent Routing Status** | Visual badge showing which agent was selected before the response begins |
+| **Markdown Rendering** | AI responses render rich formatting — bold, lists, code blocks, etc. |
+| **Conversation Persistence** | All messages saved to PostgreSQL with agent type tracking per message |
+| **Auto-Generated Titles** | Conversations are automatically titled from the first user message |
+| **Context Compaction** | Only the last 20 messages are sent to the LLM to prevent token overflow |
+| **Rate Limiting** | In-memory rate limiter — 30 requests/minute per IP address |
+| **Global Error Handling** | Middleware catches all unhandled errors and returns consistent JSON responses |
+
+---
+
+## Project Structure
+
+```
+ai-customer-support/
+├── turbo.json                      # Turborepo pipeline config
+├── package.json                    # Root workspace config
+│
+├── apps/
+│   ├── backend/
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma       # Database schema (Conversations, Messages, Orders, Invoices)
+│   │   │   ├── seed.ts             # Seed script with sample data
+│   │   │   └── migrations/         # Prisma migration history
+│   │   └── src/
+│   │       ├── index.ts            # Server entrypoint (Hono + middleware + routes)
+│   │       ├── agents/
+│   │       │   ├── router.agent.ts # Intent classification + agent delegation
+│   │       │   ├── order.agent.ts  # Order sub-agent definition + tools
+│   │       │   ├── billing.agent.ts# Billing sub-agent definition + tools
+│   │       │   └── support.agent.ts# Support sub-agent definition + tools
+│   │       ├── controllers/
+│   │       │   └── chat.controller.ts  # Thin route handlers
+│   │       ├── services/
+│   │       │   └── chat.service.ts     # Business logic + context management
+│   │       ├── tools/
+│   │       │   ├── order.tools.ts      # Database queries for orders
+│   │       │   ├── billing.tools.ts    # Database queries for invoices
+│   │       │   └── support.tools.ts    # FAQ lookup + conversation history
+│   │       ├── middlewares/
+│   │       │   ├── errorHandler.ts     # Global error handling
+│   │       │   └── rateLimiter.ts      # IP-based rate limiting
+│   │       ├── routes/
+│   │       │   ├── index.ts            # Route aggregator (Hono RPC type export)
+│   │       │   ├── chat.routes.ts      # Chat endpoints
+│   │       │   ├── agent.routes.ts     # Agent info endpoints
+│   │       │   └── health.routes.ts    # Health check
+│   │       ├── db/
+│   │       │   └── index.ts            # Prisma client singleton
+│   │       └── types/
+│   │           └── index.ts            # Shared TypeScript types
+│   │
+│   └── frontend/
+│       └── src/
+│           ├── App.tsx                 # Root component (sidebar + chat layout)
+│           ├── api/
+│           │   └── client.ts           # Hono RPC client + API helpers
+│           └── components/
+│               ├── ChatArea.tsx        # Chat UI with streaming + markdown
+│               └── Sidebar.tsx         # Conversation list + new chat
+│
+└── screenshots/                    # Application screenshots
+```
+
+---
+
+## Database Schema & Seed Data
+
+### Schema Overview
+
+| Model | Purpose | Key Fields |
+|:------|:--------|:-----------|
+| **Conversation** | Groups messages into threads | `id`, `title`, `createdAt` |
+| **Message** | Individual chat messages | `role`, `content`, `agentType`, `conversationId` |
+| **Order** | Customer orders with items | `id`, `status`, `tracking`, `items` (JSON), `total` |
+| **Invoice** | Billing records | `id`, `amount`, `status`, `dueDate` |
+
+### Seed Data
+
+The database is pre-seeded with **7 orders** and **7 invoices** covering various statuses:
+
+<details>
+<summary><strong>Orders</strong></summary>
+
+| Order | Customer | Status | Total | Tracking |
+|:------|:---------|:-------|:------|:---------|
+| ORD-1001 | Alice Johnson | shipped | $99.97 | TRK-ABC123 |
+| ORD-1002 | Bob Smith | processing | $149.99 | — |
+| ORD-1003 | Carol Davis | delivered | $77.50 | TRK-XYZ789 |
+| ORD-1004 | David Lee | shipped | $124.97 | TRK-DEF456 |
+| ORD-1005 | Eva Martinez | cancelled | $299.99 | — |
+| ORD-1006 | Frank Wilson | processing | $259.98 | — |
+| ORD-1007 | Alice Johnson | delivered | $50.97 | TRK-GHI012 |
+
+</details>
+
+<details>
+<summary><strong>Invoices</strong></summary>
+
+| Invoice | Customer | Amount | Status | Due Date |
+|:--------|:---------|:-------|:-------|:---------|
+| INV-2001 | Alice Johnson | $99.97 | paid | 2026-02-15 |
+| INV-2002 | Bob Smith | $149.99 | pending | 2026-03-08 |
+| INV-2003 | Carol Davis | $77.50 | paid | 2026-02-20 |
+| INV-2004 | David Lee | $124.97 | pending | 2026-03-01 |
+| INV-2005 | Eva Martinez | $299.99 | refunded | 2026-03-05 |
+| INV-2006 | Frank Wilson | $259.98 | pending | 2026-03-10 |
+| INV-2007 | Alice Johnson | $50.97 | overdue | 2026-01-20 |
+
+</details>
+
+---
+
+## Design Decisions
+
+| Decision | Rationale |
+|:---------|:----------|
+| **Hybrid intent classification** | Keyword regex runs first (fast, deterministic) with LLM fallback for ambiguous queries — balances speed and accuracy |
+| **Tool data injection over LLM tool-calling** | Tool results are gathered server-side and injected into the system prompt, avoiding extra LLM round-trips and reducing latency |
+| **Context compaction** | Capping at 20 messages prevents token overflow while maintaining enough context for coherent multi-turn conversations |
+| **Controller-Service pattern** | Controllers stay thin (HTTP concerns), services own business logic — keeps code testable and maintainable |
+| **Hono RPC** | Eliminates manual API type definitions — the frontend's client is auto-typed from the backend's route definitions |
+| **Streaming with status prefix** | The `__STATUS__:` prefix lets the frontend distinguish routing metadata from AI content in a single stream |
+
+---
+
+<div align="center">
+
+**Built with Hono.dev, React, Vercel AI SDK, and PostgreSQL**
+
+</div>
