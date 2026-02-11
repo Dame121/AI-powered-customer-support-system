@@ -297,10 +297,10 @@ ai-customer-support/
 │   │   └── src/
 │   │       ├── index.ts            # Server entrypoint (Hono + middleware + routes)
 │   │       ├── agents/
-│   │       │   ├── router.agent.ts # Intent classification + agent delegation
-│   │       │   ├── order.agent.ts  # Order sub-agent definition + tools
-│   │       │   ├── billing.agent.ts# Billing sub-agent definition + tools
-│   │       │   └── support.agent.ts# Support sub-agent definition + tools
+│   │       │   ├── router.agent.ts   # Intent classification + agent delegation
+│   │       │   ├── order.agent.ts    # Order sub-agent definition + tools
+│   │       │   ├── billing.agent.ts  # Billing sub-agent definition + tools
+│   │       │   └── support.agent.ts  # Support sub-agent definition + tools
 │   │       ├── controllers/
 │   │       │   └── chat.controller.ts  # Thin route handlers
 │   │       ├── services/
