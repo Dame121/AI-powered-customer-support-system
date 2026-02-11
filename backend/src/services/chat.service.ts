@@ -32,13 +32,19 @@ export const chatService = {
       data: { conversationId: convId, role: 'user', content },
     })
 
-    // 3. Load conversation history for context
+    // 3. Load conversation history for context (with compaction)
     const history = await prisma.message.findMany({
       where: { conversationId: convId },
       orderBy: { createdAt: 'asc' },
     })
 
-    const messages: ModelMessage[] = history.map((m) => ({
+    // Context compaction: keep only the last 20 messages to avoid token overflow
+    const MAX_CONTEXT_MESSAGES = 20
+    const trimmedHistory = history.length > MAX_CONTEXT_MESSAGES
+      ? history.slice(-MAX_CONTEXT_MESSAGES)
+      : history
+
+    const messages: ModelMessage[] = trimmedHistory.map((m) => ({
       role: m.role === 'user' ? 'user' : 'assistant' as const,
       content: m.content,
     }))

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { sendMessage } from '../api/client'
 
 interface ChatMsg {
@@ -12,11 +13,22 @@ interface Props {
   onConversationCreated: (id: string) => void
 }
 
+const THINKING_PHRASES = [
+  'Analyzing your query...',
+  'Searching knowledge base...',
+  'Looking up information...',
+  'Processing request...',
+  'Connecting to agent...',
+]
+
 export default function ChatArea({ conversationId, onConversationCreated }: Props) {
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [agentType, setAgentType] = useState<string | null>(null)
+  const [thinkingStatus, setThinkingStatus] = useState<string | null>(null)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const skipFetchRef = useRef(false)
 
@@ -32,8 +44,13 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
       return
     }
     // Fetch existing messages
+    setIsLoadingHistory(true)
+    setError(null)
     fetch(`http://localhost:3000/api/chat/conversations/${conversationId}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to load conversation')
+        return r.json()
+      })
       .then((data) => {
         if (data.conversation?.messages) {
           setMessages(
@@ -48,7 +65,8 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
           if (lastAssistant?.agentType) setAgentType(lastAssistant.agentType)
         }
       })
-      .catch(console.error)
+      .catch((err) => setError(err.message || 'Failed to load conversation'))
+      .finally(() => setIsLoadingHistory(false))
   }, [conversationId])
 
   // Auto-scroll to bottom
@@ -61,8 +79,18 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
     if (!text || isStreaming) return
 
     setInput('')
+    setError(null)
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     setIsStreaming(true)
+
+    // Show thinking indicator with rotating phrases
+    setThinkingStatus(THINKING_PHRASES[0])
+    const thinkingInterval = setInterval(() => {
+      setThinkingStatus((prev) => {
+        const idx = THINKING_PHRASES.indexOf(prev || '')
+        return THINKING_PHRASES[(idx + 1) % THINKING_PHRASES.length]
+      })
+    }, 1500)
 
     // Add empty assistant message to stream into
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
@@ -80,23 +108,42 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
       // Read stream
       const decoder = new TextDecoder()
       let done = false
+      let statusProcessed = false
 
       while (!done) {
         const { value, done: streamDone } = await reader.read()
         done = streamDone
         if (value) {
-          const chunk = decoder.decode(value, { stream: true })
-          setMessages((prev) => {
-            const updated = [...prev]
-            const last = updated[updated.length - 1]
-            if (last && last.role === 'assistant') {
-              updated[updated.length - 1] = {
-                ...last,
-                content: last.content + chunk,
-              }
+          let chunk = decoder.decode(value, { stream: true })
+
+          // Parse status prefix from backend (e.g. "__STATUS__:Routed to order agent")
+          if (!statusProcessed && chunk.includes('__STATUS__:')) {
+            const statusMatch = chunk.match(/__STATUS__:(.+?)\n/)
+            if (statusMatch) {
+              setThinkingStatus(statusMatch[1])
+              chunk = chunk.replace(/__STATUS__:.+?\n/, '')
+              // Brief delay to show routing status before content starts
+              await new Promise((r) => setTimeout(r, 600))
             }
-            return updated
-          })
+            statusProcessed = true
+            clearInterval(thinkingInterval)
+            setThinkingStatus(null)
+          }
+
+          if (chunk) {
+            setMessages((prev) => {
+              const updated = [...prev]
+              const last = updated[updated.length - 1]
+              if (last && last.role === 'assistant') {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: last.content + chunk,
+                  agentType: agent,
+                }
+              }
+              return updated
+            })
+          }
         }
       }
     } catch (err: any) {
@@ -112,6 +159,8 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
         return updated
       })
     } finally {
+      clearInterval(thinkingInterval)
+      setThinkingStatus(null)
       setIsStreaming(false)
     }
   }
@@ -133,7 +182,23 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
 
       {/* Messages */}
       <div className="messages">
-        {messages.length === 0 && (
+        {/* Error banner */}
+        {error && (
+          <div className="error-banner">
+            <span>⚠️ {error}</span>
+            <button onClick={() => setError(null)}>×</button>
+          </div>
+        )}
+
+        {/* Loading state */}
+        {isLoadingHistory && (
+          <div className="loading-state">
+            <div className="typing-indicator"><span></span><span></span><span></span></div>
+            <p>Loading conversation...</p>
+          </div>
+        )}
+
+        {messages.length === 0 && !isLoadingHistory && (
           <div className="empty-state">
             <h3>AI Customer Support</h3>
             <p>Ask about orders, billing, or general support.</p>
@@ -160,14 +225,24 @@ export default function ChatArea({ conversationId, onConversationCreated }: Prop
               <div className="message-role">
                 {msg.role === 'user' ? 'You' : `Assistant${msg.agentType ? ` (${msg.agentType})` : agentType ? ` (${agentType})` : ''}`}
               </div>
-              <div className="message-text">{msg.content}</div>
+              <div className="message-text">
+                {msg.role === 'assistant' ? (
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                ) : (
+                  msg.content
+                )}
+              </div>
             </div>
           </div>
         ))}
 
+        {/* Thinking / typing indicator */}
         {isStreaming && messages[messages.length - 1]?.content === '' && (
-          <div className="typing-indicator">
-            <span></span><span></span><span></span>
+          <div className="thinking-status">
+            <div className="typing-indicator">
+              <span></span><span></span><span></span>
+            </div>
+            {thinkingStatus && <p className="thinking-text">{thinkingStatus}</p>}
           </div>
         )}
 

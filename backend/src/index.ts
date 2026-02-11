@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serve } from '@hono/node-server'
 import { errorHandler } from './middlewares/errorHandler.js'
+import { rateLimiter } from './middlewares/rateLimiter.js'
 import api from './routes/index.js'
 
 const app = new Hono()
@@ -16,6 +17,9 @@ app.use('*', cors({
 
 // Global error handling middleware
 app.use('*', errorHandler)
+
+// Rate limiting — 30 requests per minute per IP
+app.use('/api/*', rateLimiter({ windowMs: 60_000, max: 30 }))
 
 // Home route
 app.get('/', (c) => {

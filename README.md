@@ -12,9 +12,11 @@ Backend (Hono.dev)
     │
     ├── Controller Layer   → thin route handlers
     ├── Service Layer      → business logic
+    ├── Rate Limiter       → 30 req/min per IP
+    ├── Error Handler      → global error middleware
     ├── Router Agent       → intent classification + delegation
     │     ├── Order Agent  → tools: getOrderDetails, checkDeliveryStatus, getTrackingInfo
-    │     ├── Billing Agent→ tools: getInvoiceDetails, checkPaymentStatus, listAllInvoices
+    │     ├── Billing Agent→ tools: getInvoiceDetails, checkPaymentStatus, checkRefundStatus, listAllInvoices
     │     └── Support Agent→ tools: searchFAQ, getConversationHistory
     └── Database (PostgreSQL + Prisma)
 ```
@@ -22,9 +24,15 @@ Backend (Hono.dev)
 **Key patterns:**
 - Controller-Service separation (routes → controller → service → agents)
 - Global error handling middleware
+- Rate limiting (30 requests/minute per IP)
 - Streaming AI responses via Vercel AI SDK + Groq
 - Conversation context persistence across messages
+- Context compaction (last 20 messages to prevent token overflow)
 - Keyword + LLM hybrid intent classification
+- Agent type tracking per message
+- Auto-generated conversation titles
+- "Thinking" / routing status indicators
+- Markdown rendering for AI responses
 
 ## Tech Stack
 
@@ -58,7 +66,7 @@ cd backend
 npm install
 ```
 
-Create a `.env` file in `backend/`:
+Create a `.env` file in `backend/` (see `.env.example`):
 
 ```env
 DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/customer_support"
@@ -104,17 +112,29 @@ Frontend runs at **http://localhost:5173**
 
 ## Seed Data
 
-| Orders    | Status      | Tracking    |
-|-----------|-------------|-------------|
-| ORD-1001  | shipped     | TRK-ABC123  |
-| ORD-1002  | processing  | —           |
-| ORD-1003  | delivered   | TRK-XYZ789  |
+### Orders (7 records)
 
-| Invoices  | Amount  | Status   |
-|-----------|---------|----------|
-| INV-2001  | $49.99  | paid     |
-| INV-2002  | $150.00 | pending  |
-| INV-2003  | $75.50  | overdue  |
+| Order     | Customer       | Status      | Total    | Tracking    |
+|-----------|---------------|-------------|----------|-------------|
+| ORD-1001  | Alice Johnson | shipped     | $99.97   | TRK-ABC123  |
+| ORD-1002  | Bob Smith     | processing  | $149.99  | —           |
+| ORD-1003  | Carol Davis   | delivered   | $77.50   | TRK-XYZ789  |
+| ORD-1004  | David Lee     | shipped     | $124.97  | TRK-DEF456  |
+| ORD-1005  | Eva Martinez  | cancelled   | $299.99  | —           |
+| ORD-1006  | Frank Wilson  | processing  | $259.98  | —           |
+| ORD-1007  | Alice Johnson | delivered   | $50.97   | TRK-GHI012  |
+
+### Invoices (7 records)
+
+| Invoice   | Customer       | Amount   | Status   | Due Date   |
+|-----------|---------------|----------|----------|------------|
+| INV-2001  | Alice Johnson | $99.97   | paid     | 2026-02-15 |
+| INV-2002  | Bob Smith     | $149.99  | pending  | 2026-03-08 |
+| INV-2003  | Carol Davis   | $77.50   | paid     | 2026-02-20 |
+| INV-2004  | David Lee     | $124.97  | pending  | 2026-03-01 |
+| INV-2005  | Eva Martinez  | $299.99  | refunded | 2026-03-05 |
+| INV-2006  | Frank Wilson  | $259.98  | pending  | 2026-03-10 |
+| INV-2007  | Alice Johnson | $50.97   | overdue  | 2026-01-20 |
 
 ## Multi-Agent System
 
@@ -122,17 +142,32 @@ Frontend runs at **http://localhost:5173**
 - Classifies user intent using keyword matching + LLM fallback
 - Tracks conversation context for follow-up messages
 - Delegates to the correct sub-agent with tool-gathered data injected into the prompt
+- Sends routing status to frontend ("Routed to order agent")
 
 ### Order Agent
-- **getOrderDetails** — fetch full order by ID
-- **checkDeliveryStatus** — get current shipping status
-- **getTrackingInfo** — get tracking number
+- **getOrderDetails** — fetch full order by ID (customer, items, total, dates)
+- **checkDeliveryStatus** — get current shipping status + delivery date
+- **getTrackingInfo** — get tracking number + shipping info
 
 ### Billing Agent
-- **getInvoiceDetails** — fetch invoice by ID
-- **checkPaymentStatus** — get payment status
+- **getInvoiceDetails** — fetch invoice by ID (customer, amount, description, dates)
+- **checkPaymentStatus** — get payment status + due date
+- **checkRefundStatus** — check if invoice has been refunded
 - **listAllInvoices** — list all invoices with details
 
 ### Support Agent
-- **searchFAQ** — keyword-based FAQ lookup
-- **getConversationHistory** — retrieve prior conversation messages
+- **searchFAQ** — keyword-based FAQ lookup (passwords, shipping, returns, etc.)
+- **getConversationHistory** — retrieve prior conversation messages for context
+
+## Features
+
+- **Streaming responses** — AI responses stream in real-time, word by word
+- **Thinking indicator** — Shows "Analyzing your query...", "Searching knowledge base..." etc. while the AI processes
+- **Agent routing status** — Displays which agent was selected before response starts
+- **Markdown rendering** — AI responses render bold, lists, code blocks, etc.
+- **Conversation persistence** — All messages saved to PostgreSQL with agent type tracking
+- **Auto-generated titles** — Conversations get titled from the first user message
+- **Context compaction** — Only last 20 messages sent to LLM to prevent token overflow
+- **Rate limiting** — 30 requests/minute per IP address
+- **Error handling** — Global middleware + frontend error banners
+- **Loading states** — Skeleton loading when fetching conversation history

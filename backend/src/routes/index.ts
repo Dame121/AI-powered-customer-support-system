@@ -1,8 +1,7 @@
 import { Hono } from 'hono'
-import chatRoutes from './chat/index.js'
-import agentRoutes from './agents/index.js'
-import healthRoutes from './health/index.js'
-
+import chatRoutes from './chat.routes.js'
+import agentRoutes from './agent.routes.js'
+import healthRoutes from './health.routes.js'
 
 const api = new Hono()
 
@@ -14,7 +13,5 @@ api.route('/agents', agentRoutes)
 
 // /api/health
 api.route('/health', healthRoutes)
-
-
 
 export default api

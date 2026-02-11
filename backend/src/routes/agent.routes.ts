@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { getAllAgents, getAgentByType } from '../../agents/router.agent.js'
+import { getAllAgents, getAgentByType } from '../agents/router.agent.js'
 
 const agentRoutes = new Hono()
 

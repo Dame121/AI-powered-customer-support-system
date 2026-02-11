@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import prisma from '../../db/index.js'
+import prisma from '../db/index.js'
 
 const healthRoutes = new Hono()
 
