@@ -59,38 +59,38 @@ The system follows a **Controller → Service → Agent** pattern with clean sep
 │                      Backend (Hono.dev)                         │
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────┐  │
-│  │ Rate Limiter  │  │ Error Handler│  │ CORS Middleware        │  │
-│  │ 30 req/min/IP │  │  (global)    │  │                       │  │
+│  │ Rate Limiter │  │ Error Handler│  │ CORS Middleware       │  │
+│  │ 30 req/min/IP│  │  (global)    │  │                       │  │
 │  └──────┬───────┘  └──────┬───────┘  └───────────┬───────────┘  │
 │         └─────────────────┼──────────────────────┘              │
 │                           ▼                                     │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Controller Layer                      │    │
-│  │           (thin handlers — delegates to services)        │    │
+│  │                    Controller Layer                     │    │
+│  │           (thin handlers — delegates to services)       │    │
 │  └─────────────────────────┬───────────────────────────────┘    │
 │                            ▼                                    │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │                     Service Layer                        │    │
-│  │       (business logic, context management, routing)      │    │
+│  │                     Service Layer                       │    │
+│  │       (business logic, context management, routing)     │    │
 │  └─────────────────────────┬───────────────────────────────┘    │
 │                            ▼                                    │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Router Agent                          │    │
-│  │         (intent classification + delegation)             │    │
-│  │                                                          │    │
-│  │    ┌──────────────┬──────────────┬──────────────┐        │    │
-│  │    │ Order Agent   │ Billing Agent│ Support Agent│        │    │
-│  │    │              │              │              │        │    │
-│  │    │ • getOrder   │ • getInvoice │ • searchFAQ  │        │    │
-│  │    │ • delivery   │ • payment    │ • history    │        │    │
-│  │    │ • tracking   │ • refund     │              │        │    │
-│  │    │              │ • listAll    │              │        │    │
-│  │    └──────────────┴──────────────┴──────────────┘        │    │
+│  │                    Router Agent                         │    │
+│  │         (intent classification + delegation)            │    │
+│  │                                                         │    │
+│  │    ┌──────────────┬──────────────┬──────────────┐       │    │
+│  │    │ Order Agent  │ Billing Agent│ Support Agent│       │    │
+│  │    │              │              │              │       │    │
+│  │    │ • getOrder   │ • getInvoice │ • searchFAQ  │       │    │
+│  │    │ • delivery   │ • payment    │ • history    │       │    │
+│  │    │ • tracking   │ • refund     │              │       │    │
+│  │    │              │ • listAll    │              │       │    │
+│  │    └──────────────┴──────────────┴──────────────┘       │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                            ▼                                    │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │              PostgreSQL + Prisma ORM                     │    │
-│  │    (Conversations, Messages, Orders, Invoices)           │    │
+│  │              PostgreSQL + Prisma ORM                    │    │
+│  │    (Conversations, Messages, Orders, Invoices)          │    │
 │  └─────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────┘
 ```
