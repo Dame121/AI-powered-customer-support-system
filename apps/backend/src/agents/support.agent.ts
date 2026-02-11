@@ -40,7 +40,7 @@ export const supportAgentTools = {
       return {
         found: true as const,
         messageCount: conversation.messages.length,
-        messages: conversation.messages.map((m) => ({
+        messages: conversation.messages.map((m: any) => ({
           role: m.role,
           content: m.content,
         })),

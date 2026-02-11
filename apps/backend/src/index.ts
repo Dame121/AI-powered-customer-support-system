@@ -4,7 +4,7 @@ import { cors } from 'hono/cors'
 import { serve } from '@hono/node-server'
 import { errorHandler } from './middlewares/errorHandler.js'
 import { rateLimiter } from './middlewares/rateLimiter.js'
-import api from './routes/index.js'
+import api, { type ApiType } from './routes/index.js'
 
 const app = new Hono()
 
@@ -27,7 +27,10 @@ app.get('/', (c) => {
 })
 
 // --- API Routes ---
-app.route('/api', api)
+const appWithApi = app.route('/api', api)
+
+// Export the full app type for Hono RPC client
+export type AppType = typeof appWithApi
 
 // Start server
 serve({

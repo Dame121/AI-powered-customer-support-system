@@ -1,4 +1,9 @@
-const API_BASE = 'http://localhost:3000/api'
+import { hc } from 'hono/client'
+import type { AppType } from 'backend'
+
+// ─── Hono RPC Client (type-safe) ─────────────────────────
+
+const client = hc<AppType>('http://localhost:3000')
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -37,14 +42,14 @@ export interface AgentCapabilities {
   capabilities: AgentCapability[]
 }
 
-// ─── Health ──────────────────────────────────────────────
+// ─── Health (RPC) ────────────────────────────────────────
 
 export async function checkHealth(): Promise<{ status: string }> {
-  const res = await fetch(`${API_BASE}/health`)
-  return res.json()
+  const res = await client.api.health.$get()
+  return res.json() as Promise<{ status: string }>
 }
 
-// ─── Chat ────────────────────────────────────────────────
+// ─── Chat (streaming — raw fetch for ReadableStream) ─────
 
 export interface SendMessageResult {
   conversationId: string
@@ -54,13 +59,14 @@ export interface SendMessageResult {
 
 /**
  * Send a message and get a streaming readable response.
- * Returns the conversationId, agentType, and a reader for streaming text.
+ * Streaming uses raw fetch because Hono RPC does not proxy ReadableStream.
  */
 export async function sendMessage(
   content: string,
   conversationId?: string
 ): Promise<SendMessageResult> {
-  const res = await fetch(`${API_BASE}/chat/messages`, {
+  // Use RPC URL but raw fetch for streaming body
+  const res = await fetch(client.api.chat.messages.$url().toString(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content, conversationId }),
@@ -68,7 +74,7 @@ export async function sendMessage(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Request failed' }))
-    throw new Error(err.error || `HTTP ${res.status}`)
+    throw new Error((err as { error?: string }).error || `HTTP ${res.status}`)
   }
 
   const convId = res.headers.get('X-Conversation-Id') || ''
@@ -78,33 +84,33 @@ export async function sendMessage(
   return { conversationId: convId, agentType, reader }
 }
 
-// ─── Conversations ───────────────────────────────────────
+// ─── Conversations (RPC) ─────────────────────────────────
 
 export async function listConversations(): Promise<Conversation[]> {
-  const res = await fetch(`${API_BASE}/chat/conversations`)
-  const data = await res.json()
+  const res = await client.api.chat.conversations.$get()
+  const data: any = await res.json()
   return data.conversations
 }
 
 export async function getConversation(id: string): Promise<Conversation> {
-  const res = await fetch(`${API_BASE}/chat/conversations/${id}`)
-  const data = await res.json()
+  const res = await client.api.chat.conversations[':id'].$get({ param: { id } })
+  const data: any = await res.json()
   return data.conversation
 }
 
 export async function deleteConversation(id: string): Promise<void> {
-  await fetch(`${API_BASE}/chat/conversations/${id}`, { method: 'DELETE' })
+  await client.api.chat.conversations[':id'].$delete({ param: { id } })
 }
 
-// ─── Agents ──────────────────────────────────────────────
+// ─── Agents (RPC) ────────────────────────────────────────
 
 export async function listAgents(): Promise<Agent[]> {
-  const res = await fetch(`${API_BASE}/agents`)
-  const data = await res.json()
+  const res = await client.api.agents.$get()
+  const data: any = await res.json()
   return data.agents
 }
 
 export async function getAgentCapabilities(type: string): Promise<AgentCapabilities> {
-  const res = await fetch(`${API_BASE}/agents/${type}/capabilities`)
-  return res.json()
+  const res = await client.api.agents[':type'].capabilities.$get({ param: { type } })
+  return res.json() as Promise<AgentCapabilities>
 }

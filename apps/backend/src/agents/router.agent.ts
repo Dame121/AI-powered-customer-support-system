@@ -117,7 +117,7 @@ async function gatherToolContext(agentType: AgentType, message: string, conversa
     }
   } else if (agentType === 'order') {
     const allOrders = await listOrders()
-    const formatted = allOrders.map((o) => `- ${o.id}: customer="${o.customerName}", status="${o.status}", total=$${o.total}`).join('\n')
+    const formatted = allOrders.map((o: any) => `- ${o.id}: customer="${o.customerName}", status="${o.status}", total=$${o.total}`).join('\n')
     contextParts.push(`[Tool Result] No specific order ID was mentioned. Available orders:\n${formatted}`)
   }
 
@@ -149,7 +149,7 @@ async function gatherToolContext(agentType: AgentType, message: string, conversa
       const history = await getConversationHistory(conversationId)
       if (history && history.messages.length > 0) {
         const summary = history.messages
-          .map((m) => `${m.role}: ${m.content}`)
+          .map((m: any) => `${m.role}: ${m.content}`)
           .join('\n')
         contextParts.push(`[Tool Result] Conversation history:\n${summary}`)
       }

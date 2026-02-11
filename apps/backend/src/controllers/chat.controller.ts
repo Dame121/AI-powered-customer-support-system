@@ -21,10 +21,13 @@ export const chatController = {
     const content = body.content.trim()
 
     // Phase 1: Classify intent (this happens before streaming starts)
-    const { conversationId, agentType, result } = await chatService.processMessage(
+    const result_data = await chatService.processMessage(
       content,
       body.conversationId
     )
+    const conversationId = result_data.conversationId as string
+    const agentType = result_data.agentType
+    const result = result_data.result
 
     // Phase 2: Stream the response with a status prefix
     // We use Hono's streaming helper to prepend a routing status line,
@@ -36,7 +39,7 @@ export const chatController = {
 
     // Save assistant message to DB after stream finishes (non-blocking)
     result.text.then((fullText) => {
-      chatService.saveAssistantMessage(conversationId, fullText, agentType).catch(console.error)
+      chatService.saveAssistantMessage(conversationId, fullText, agentType ?? 'support').catch(console.error)
     })
 
     return stream(c, async (s) => {

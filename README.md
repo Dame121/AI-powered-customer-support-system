@@ -36,13 +36,15 @@ Backend (Hono.dev)
 
 ## Tech Stack
 
-| Layer     | Technology                        |
-|-----------|-----------------------------------|
-| Frontend  | React 19, Vite, TypeScript        |
-| Backend   | Hono.dev, TypeScript, Node.js     |
-| Database  | PostgreSQL                        |
-| ORM       | Prisma                            |
-| AI        | Vercel AI SDK, Groq (Llama 3.3)   |
+| Layer     | Technology                              |
+|-----------|-----------------------------------------|
+| Frontend  | React 19, Vite, TypeScript              |
+| Backend   | Hono.dev, TypeScript, Node.js           |
+| Database  | PostgreSQL                              |
+| ORM       | Prisma                                  |
+| AI        | Vercel AI SDK, Groq (Llama 3.3)         |
+| Monorepo  | Turborepo + npm Workspaces              |
+| Type-safe client | Hono RPC (`hc` client)           |
 
 ## Prerequisites
 
@@ -57,16 +59,12 @@ Backend (Hono.dev)
 ```bash
 git clone https://github.com/Dame121/AI-powered-customer-support-system.git
 cd AI-powered-customer-support-system
+npm install        # installs all workspace dependencies
 ```
 
 ### 2. Backend setup
 
-```bash
-cd backend
-npm install
-```
-
-Create a `.env` file in `backend/` (see `.env.example`):
+Create a `.env` file in `apps/backend/` (see `.env.example`):
 
 ```env
 DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/customer_support"
@@ -76,27 +74,31 @@ GROQ_API_KEY="your-groq-api-key-here"
 Run database migrations and seed:
 
 ```bash
+cd apps/backend
 npx prisma migrate dev
 npm run db:seed
 ```
 
-Start the backend:
+### 3. Run everything (Turborepo)
+
+From the project root:
 
 ```bash
-npm run dev
+npm run dev        # starts backend + frontend concurrently via turbo
 ```
 
-Backend runs at **http://localhost:3000**
-
-### 3. Frontend setup
+Or run individually:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+npm run dev:backend    # backend only → http://localhost:3000
+npm run dev:frontend   # frontend only → http://localhost:5173
 ```
 
-Frontend runs at **http://localhost:5173**
+Build all packages:
+
+```bash
+npm run build      # turbo build (backend tsc + frontend vite build)
+```
 
 ## API Routes
 
@@ -161,6 +163,8 @@ Frontend runs at **http://localhost:5173**
 
 ## Features
 
+- **Hono RPC + type-safe client** — Frontend uses `hc<AppType>()` from `hono/client` for end-to-end type safety
+- **Turborepo monorepo** — `npm run dev` starts backend + frontend concurrently via `turbo`
 - **Streaming responses** — AI responses stream in real-time, word by word
 - **Thinking indicator** — Shows "Analyzing your query...", "Searching knowledge base..." etc. while the AI processes
 - **Agent routing status** — Displays which agent was selected before response starts

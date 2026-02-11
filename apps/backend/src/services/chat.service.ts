@@ -44,7 +44,7 @@ export const chatService = {
       ? history.slice(-MAX_CONTEXT_MESSAGES)
       : history
 
-    const messages: ModelMessage[] = trimmedHistory.map((m) => ({
+    const messages: ModelMessage[] = trimmedHistory.map((m: any) => ({
       role: m.role === 'user' ? 'user' : 'assistant' as const,
       content: m.content,
     }))
