@@ -59,38 +59,38 @@ The system follows a **Controller → Service → Agent** pattern with clean sep
 │                      Backend (Hono.dev)                         │
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────┐  │
-│  │ Rate Limiter  │  │ Error Handler│  │ CORS Middleware        │  │
-│  │ 30 req/min/IP │  │  (global)    │  │                       │  │
+│  │ Rate Limiter │  │ Error Handler│  │ CORS Middleware       │  │
+│  │ 30 req/min/IP│  │  (global)    │  │                       │  │
 │  └──────┬───────┘  └──────┬───────┘  └───────────┬───────────┘  │
 │         └─────────────────┼──────────────────────┘              │
 │                           ▼                                     │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Controller Layer                      │    │
-│  │           (thin handlers — delegates to services)        │    │
+│  │                    Controller Layer                     │    │
+│  │           (thin handlers — delegates to services)       │    │
 │  └─────────────────────────┬───────────────────────────────┘    │
 │                            ▼                                    │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │                     Service Layer                        │    │
-│  │       (business logic, context management, routing)      │    │
+│  │                     Service Layer                       │    │
+│  │       (business logic, context management, routing)     │    │
 │  └─────────────────────────┬───────────────────────────────┘    │
 │                            ▼                                    │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Router Agent                          │    │
-│  │         (intent classification + delegation)             │    │
-│  │                                                          │    │
-│  │    ┌──────────────┬──────────────┬──────────────┐        │    │
-│  │    │ Order Agent   │ Billing Agent│ Support Agent│        │    │
-│  │    │              │              │              │        │    │
-│  │    │ • getOrder   │ • getInvoice │ • searchFAQ  │        │    │
-│  │    │ • delivery   │ • payment    │ • history    │        │    │
-│  │    │ • tracking   │ • refund     │              │        │    │
-│  │    │              │ • listAll    │              │        │    │
-│  │    └──────────────┴──────────────┴──────────────┘        │    │
+│  │                    Router Agent                         │    │
+│  │         (intent classification + delegation)            │    │
+│  │                                                         │    │
+│  │    ┌──────────────┬──────────────┬──────────────┐       │    │
+│  │    │ Order Agent  │ Billing Agent│ Support Agent│       │    │
+│  │    │              │              │              │       │    │
+│  │    │ • getOrder   │ • getInvoice │ • searchFAQ  │       │    │
+│  │    │ • delivery   │ • payment    │ • history    │       │    │
+│  │    │ • tracking   │ • refund     │              │       │    │
+│  │    │              │ • listAll    │              │       │    │
+│  │    └──────────────┴──────────────┴──────────────┘       │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                            ▼                                    │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │              PostgreSQL + Prisma ORM                     │    │
-│  │    (Conversations, Messages, Orders, Invoices)           │    │
+│  │              PostgreSQL + Prisma ORM                    │    │
+│  │    (Conversations, Messages, Orders, Invoices)          │    │
 │  └─────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -297,10 +297,10 @@ ai-customer-support/
 │   │   └── src/
 │   │       ├── index.ts            # Server entrypoint (Hono + middleware + routes)
 │   │       ├── agents/
-│   │       │   ├── router.agent.ts # Intent classification + agent delegation
-│   │       │   ├── order.agent.ts  # Order sub-agent definition + tools
-│   │       │   ├── billing.agent.ts# Billing sub-agent definition + tools
-│   │       │   └── support.agent.ts# Support sub-agent definition + tools
+│   │       │   ├── router.agent.ts   # Intent classification + agent delegation
+│   │       │   ├── order.agent.ts    # Order sub-agent definition + tools
+│   │       │   ├── billing.agent.ts  # Billing sub-agent definition + tools
+│   │       │   └── support.agent.ts  # Support sub-agent definition + tools
 │   │       ├── controllers/
 │   │       │   └── chat.controller.ts  # Thin route handlers
 │   │       ├── services/
